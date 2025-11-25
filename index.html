@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ÉLEVAGE BOSKO - Résultats de Course</title> 
+    <style>
+        /* Styles Généraux */
+        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f4f4f9; }
+        .container { max-width: 900px; margin: auto; background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        h1, h2 { color: #0056b3; }
+        label { display: block; margin-top: 10px; font-weight: bold; }
+        input[type="text"], input[type="datetime-local"], button, textarea { width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        button { background-color: #28a745; color: white; cursor: pointer; border: none; }
+        button:hover { background-color: #218838; }
+        /* Style spécifique pour le bouton d'importation */
+        #load-file-btn { background-color: #007bff; }
+        #load-file-btn:hover { background-color: #0056b3 !important; }
+
+        /* Styles du Tableau de Résultats */
+        .resultats-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        .resultats-table th, .resultats-table td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        .resultats-table th { background-color: #f2f2f2; }
+        
+        /* Styles de classement (Podium en Jaune Pur et Gras) */
+        .rang-1, .rang-2, .rang-3 { 
+            background-color: #FFFF00 !important; 
+            font-weight: bold; 
+        } 
+
+        /* --- STYLES D'IMPRESSION (MODERNITÉ ET LOGO) --- */
+        
+        /* Cache les éléments non essentiels à l'impression */
+        @media print {
+            .container { box-shadow: none; border: none; }
+            #data-input, #pdf-button, #distance-notes, #load-file-btn, #file-input, hr { display: none !important; }
+            body { margin: 0; padding: 0; background: white; }
+            
+            /* Tentative de suppression des entêtes et pieds de page (souvent ignoré par le navigateur) */
+            @page {
+                margin: 0;
+                size: A4 portrait;
+            }
+            
+            .print-header { 
+                display: flex; 
+                justify-content: space-between; 
+                align-items: center; 
+                border-bottom: 3px solid #0056b3; 
+                padding-bottom: 10px; 
+                margin-bottom: 20px;
+                padding-left: 20px; /* Ajout pour l'alignement sur page A4 */
+                padding-right: 20px;
+            }
+            .print-logo { 
+                max-height: 80px; 
+                width: auto; 
+                margin-right: 20px;
+            }
+            .print-title h1 { 
+                color: #0056b3; 
+                margin: 0; 
+                font-size: 24pt;
+                text-transform: uppercase;
+            }
+            .print-title p {
+                margin: 5px 0 0;
+                font-size: 10pt;
+                color: #555;
+            }
+            .resultats-table { 
+                border: 2px solid #0056b3; 
+                margin-top: 15px;
+                font-size: 10pt; 
+                /* Padding pour centrer le tableau sur la page imprimée */
+                margin-left: 20px; 
+                margin-right: 20px;
+                width: calc(100% - 40px);
+            }
+            .resultats-table th, .resultats-table td { 
+                border-color: #ccc; 
+                padding: 5px; 
+            }
+            .rang-1, .rang-2, .rang-3 {
+                /* Nécessaire pour imprimer les couleurs de fond */
+                -webkit-print-color-adjust: exact;
+                color-adjust: exact;
+            }
+            /* Assure que la zone d'impression couvre tout */
+            .container { width: 100%; max-width: none; padding: 0; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>🏁 ÉLEVAGE BOSKO - Calculateur de Résultats</h1>
+        
+        <p id="distance-notes">✅ La distance est calculée automatiquement par GPS (formule Haversine). Le système est compatible avec les fichiers **CSV générés par Excel** (séparateur point-virgule ou virgule).</p>
+
+        <div id="data-input">
+            <h2>Paramètres du Lâcher</h2>
+            <label for="heure-lacher">Heure de Lâcher :</label>
+            <input type="datetime-local" id="heure-lacher" value="2025-11-21T08:00">
+
+            <label for="lacher-lat">Latitude du Lâcher (Décimal - ex: 50.45)</label>
+            <input type="text" id="lacher-lat" value="50.45">
+
+            <label for="lacher-lon">Longitude du Lâcher (Décimal - ex: 3.25)</label>
+            <input type="text" id="lacher-lon" value="3.25">
+
+            
+            <h2>Importation de Fichier Excel via CSV</h2>
+            <p style="font-size: 14px; color: #0056b3;">
+                **1. Créez ou modifiez vos données dans Excel.**
+                <br>
+                **2. Enregistrez-le au format CSV (Fichier > Enregistrer sous > Type: CSV).**
+                <br>
+                **3. Chargez le fichier CSV ci-dessous.**
+            </p>
+            <input type="file" id="file-input" accept=".csv" style="margin-bottom: 5px;">
+            <button onclick="loadFile()" id="load-file-btn" style="margin-bottom: 20px;">
+                Charger le Fichier CSV
+            </button>
+            
+            <h2>Données d'Entrée (Manuel ou après Importation)</h2>
+            <p>Format requis (un pigeon par ligne) :</p>
+            <pre>N° Bague, Nom Amateur, **Latitude Pigeonnier (Dec.)**, **Longitude Pigeonnier (Dec.)**, Heure de Constatation (YYYY-MM-DDTHH:MM)</pre>
+
+            <textarea id="csv-data" rows="10">
+1001, Durand, 50.62, 3.58, 2025-11-21T14:30
+1002, Dupont, 50.70, 3.50, 2025-11-21T14:28
+1003, Leroy, 50.85, 3.65, 2025-11-21T14:40
+1004, Dubois, 50.60, 3.60, 2025-11-21T14:31
+1005, Moreau, 50.75, 3.45, 2025-11-21T14:35
+            </textarea>
+            
+            <button onclick="calculateResults()">Calculer les Résultats</button>
+            <button onclick="generatePrintReport()" id="pdf-button">Générer le PDF (Imprimer) - Design Moderne</button>
+        </div>
+
+        <hr>
+
+        <h2>📊 Classement Provisoire</h2>
+        <div id="resultats">
+            <p>Cliquez sur "Calculer les Résultats" pour afficher le classement.</p>
+        </div>
+    </div>
+
+    <script>
+        // REMPLACER CECI par l'URL de votre logo !
+        const LOGO_URL = 'https://via.placeholder.com/150x80?text=VOTRE+LOGO'; 
+
+        /**
+         * Calcule la distance entre deux points GPS (Latitude/Longitude) en utilisant la formule Haversine.
+         */
+        function getDistanceHaversine(lat1, lon1, lat2, lon2) {
+            const R = 6371; 
+            const dLat = (lat2 - lat1) * (Math.PI / 180);
+            const dLon = (lon2 - lon1) * (Math.PI / 180);
+            const a = 
+                Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            return R * c; 
+        }
+        
+        /**
+         * Charge le contenu d'un fichier CSV sélectionné.
+         */
+        function loadFile() {
+            const fileInput = document.getElementById('file-input');
+            const csvDataTextarea = document.getElementById('csv-data');
+            const file = fileInput.files[0];
+
+            if (!file) {
+                alert("Veuillez sélectionner un fichier CSV à charger.");
+                return;
+            }
+            
+            if (file.name.split('.').pop().toLowerCase() !== 'csv') {
+                alert("Type de fichier non pris en charge. Veuillez charger un fichier CSV.");
+                return;
+            }
+
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                csvDataTextarea.value = e.target.result.trim();
+                alert(`Fichier "${file.name}" chargé avec succès !`);
+                calculateResults(); 
+            };
+
+            reader.onerror = function(e) {
+                alert("Erreur lors de la lecture du fichier : " + reader.error.name);
+            };
+
+            reader.readAsText(file);
+        }
+
+        /**
+         * Calcule et affiche les résultats.
+         */
+        function calculateResults() {
+            const heureLacherInput = document.getElementById('heure-lacher').value;
+            const lacherLat = parseFloat(document.getElementById('lacher-lat').value);
+            const lacherLon = parseFloat(document.getElementById('lacher-lon').value);
+            const csvData = document.getElementById('csv-data').value;
+            const resultsDiv = document.getElementById('resultats');
+            
+            if (!heureLacherInput || isNaN(lacherLat) || isNaN(lacherLon) || !csvData) {
+                resultsDiv.innerHTML = '<p style="color:red;">Veuillez entrer l\'heure de lâcher, les coordonnées de lâcher et les données de constatation.</p>';
+                return;
+            }
+
+            const lacherTime = new Date(heureLacherInput).getTime();
+            
+            // Remplace les points-virgules (;) par des virgules (,) pour la compatibilité
+            const correctedCsvData = csvData.replace(/;/g, ',');
+            const lines = correctedCsvData.trim().split('\n').filter(line => line.trim() !== '');
+            
+            let pigeons = [];
+
+            lines.forEach(line => {
+                const parts = line.split(',').map(part => part.trim());
+                if (parts.length < 5) return; 
+
+                const [bague, amateur, pigeonnierLatStr, pigeonnierLonStr, constatationStr] = parts;
+                
+                const pigeonnierLat = parseFloat(pigeonnierLatStr);
+                const pigeonnierLon = parseFloat(pigeonnierLonStr);
+
+                const constatationTime = new Date(constatationStr).getTime();
+                
+                const distanceKm = getDistanceHaversine(lacherLat, lacherLon, pigeonnierLat, pigeonnierLon);
+                
+                if (isNaN(distanceKm) || distanceKm <= 0 || isNaN(constatationTime) || constatationTime < lacherTime) {
+                    return; 
+                }
+
+                // Calculs de temps et vitesse
+                const tempsVolMs = constatationTime - lacherTime;
+                const distanceM = distanceKm * 1000;
+                const tempsVolMin = tempsVolMs / (1000 * 60);
+                let vitesse = (tempsVolMin > 0) ? (distanceM / tempsVolMin) : 0;
+
+                const totalSeconds = Math.floor(tempsVolMs / 1000);
+                const h = Math.floor(totalSeconds / 3600);
+                const m = Math.floor((totalSeconds % 3600) / 60);
+                const s = totalSeconds % 60;
+                const tempsVolFormatted = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+
+                pigeons.push({
+                    bague,
+                    amateur,
+                    distanceKm: distanceKm.toFixed(3), 
+                    constatation: constatationStr.replace('T', ' '),
+                    tempsVol: tempsVolFormatted,
+                    vitesse: vitesse.toFixed(3)
+                });
+            });
+
+            // Tri par Vitesse
+            pigeons.sort((a, b) => parseFloat(b.vitesse) - parseFloat(a.vitesse));
+
+            // Affichage des Résultats
+            let html = `
+                <table class="resultats-table">
+                    <thead>
+                        <tr>
+                            <th>Rang</th>
+                            <th>N° Bague</th>
+                            <th>Amateur</th>
+                            <th>Distance (km)</th>
+                            <th>Constatation</th>
+                            <th>Temps de Vol</th>
+                            <th>Vitesse (m/min)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            pigeons.forEach((p, index) => {
+                let rankClass = '';
+                const rank = index + 1;
+
+                if (rank === 1) {
+                    rankClass = 'rang-1';
+                } else if (rank === 2) {
+                    rankClass = 'rang-2';
+                } else if (rank === 3) {
+                    rankClass = 'rang-3';
+                }
+
+                html += `
+                    <tr class="${rankClass}"> 
+                        <td>${rank}</td>
+                        <td>${p.bague}</td>
+                        <td>${p.amateur}</td>
+                        <td>${p.distanceKm}</td>
+                        <td>${p.constatation}</td>
+                        <td>${p.tempsVol}</td>
+                        <td>${p.vitesse}</td>
+                    </tr>
+                `;
+            });
+
+            html += `
+                    </tbody>
+                </table>
+            `;
+            resultsDiv.innerHTML = html;
+        }
+
+
+        /**
+         * Fonction pour générer le rapport d'impression avec logo et design moderne.
+         */
+        function generatePrintReport() {
+            const resultsDiv = document.getElementById('resultats');
+            const lacherDate = document.getElementById('heure-lacher').value.split('T')[0];
+            const lacherTime = document.getElementById('heure-lacher').value.split('T')[1];
+            const lacherLat = document.getElementById('lacher-lat').value;
+            const lacherLon = document.getElementById('lacher-lon').value;
+
+            // 1. Créer l'en-tête stylisé avec le logo (sans la date de génération)
+            const printHeader = `
+                <div class="print-header">
+                    <div class="print-title">
+                        <h1>ÉLEVAGE BOSKO</h1>
+                        <p>
+                            RÉSULTATS OFFICIELS DE LA COURSE
+                            <br>
+                            Date du Lâcher: ${lacherDate} à ${lacherTime} | Lieu: Lat ${lacherLat}, Lon ${lacherLon}
+                            </p>
+                    </div>
+                    <img src="${LOGO_URL}" class="print-logo" alt="Logo du Club">
+                </div>
+            `;
+            
+            // 2. Sauvegarder l'état original du contenu
+            const originalContent = document.body.innerHTML;
+            
+            // 3. Préparer le contenu pour l'impression (ajouter le header au début du div des résultats)
+            const contentToPrint = resultsDiv.innerHTML;
+            
+            // 4. Remplacer tout le corps pour n'afficher que le rapport
+            document.body.innerHTML = printHeader + contentToPrint;
+            
+            // 5. Déclencher l'impression
+            window.print();
+            
+            // 6. Rétablir le contenu original après l'impression (nécessaire après la boîte de dialogue)
+            document.body.innerHTML = originalContent;
+
+            // Important: Ré-attacher les gestionnaires d'événements
+            calculateResults(); 
+        }
+    </script>
+</body>
+</html>
