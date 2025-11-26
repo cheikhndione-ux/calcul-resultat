@@ -10,12 +10,12 @@
         .container { max-width: 900px; margin: auto; background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
         h1, h2 { color: #0056b3; }
         label { display: block; margin-top: 10px; font-weight: bold; }
-        input[type="text"], input[type="datetime-local"], button, textarea { width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        input[type="text"], input[type="datetime-local"], button, select { width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
         button { background-color: #28a745; color: white; cursor: pointer; border: none; }
         button:hover { background-color: #218838; }
-        /* Style spécifique pour le bouton d'importation */
-        #load-file-btn { background-color: #007bff; }
-        #load-file-btn:hover { background-color: #0056b3 !important; }
+        
+        #save-constatation-btn { background-color: #ffc107; color: #333; }
+        #save-constatation-btn:hover { background-color: #e0a800; }
 
         /* Styles du Tableau de Résultats */
         .resultats-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
@@ -28,19 +28,12 @@
             font-weight: bold; 
         } 
 
-        /* --- STYLES D'IMPRESSION (MODERNITÉ ET LOGO) --- */
-        
-        /* Cache les éléments non essentiels à l'impression */
+        /* --- STYLES D'IMPRESSION --- */
         @media print {
             .container { box-shadow: none; border: none; }
-            #data-input, #pdf-button, #distance-notes, #load-file-btn, #file-input, hr { display: none !important; }
+            #data-input, #constatation-form, #pdf-button, hr { display: none !important; }
             body { margin: 0; padding: 0; background: white; }
-            
-            /* Tentative de suppression des entêtes et pieds de page (souvent ignoré par le navigateur) */
-            @page {
-                margin: 0;
-                size: A4 portrait;
-            }
+            @page { margin: 0; size: A4 portrait; }
             
             .print-header { 
                 display: flex; 
@@ -49,13 +42,13 @@
                 border-bottom: 3px solid #0056b3; 
                 padding-bottom: 10px; 
                 margin-bottom: 20px;
-                padding-left: 20px; /* Ajout pour l'alignement sur page A4 */
+                padding-left: 20px; 
                 padding-right: 20px;
             }
             .print-logo { 
-                max-height: 80px; 
+                max-height: 120px; 
                 width: auto; 
-                margin-right: 20px;
+                margin-right: 20px; 
             }
             .print-title h1 { 
                 color: #0056b3; 
@@ -72,7 +65,6 @@
                 border: 2px solid #0056b3; 
                 margin-top: 15px;
                 font-size: 10pt; 
-                /* Padding pour centrer le tableau sur la page imprimée */
                 margin-left: 20px; 
                 margin-right: 20px;
                 width: calc(100% - 40px);
@@ -82,74 +74,111 @@
                 padding: 5px; 
             }
             .rang-1, .rang-2, .rang-3 {
-                /* Nécessaire pour imprimer les couleurs de fond */
                 -webkit-print-color-adjust: exact;
                 color-adjust: exact;
             }
-            /* Assure que la zone d'impression couvre tout */
             .container { width: 100%; max-width: none; padding: 0; }
         }
     </style>
+    <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-firestore.js"></script>
 </head>
 <body>
 
     <div class="container">
-        <h1>🏁 ÉLEVAGE BOSKO - Calculateur de Résultats</h1>
+        <h1>🏁 ÉLEVAGE BOSKO - Calculateur de Résultats EN DIRECT</h1>
         
-        <p id="distance-notes">✅ La distance est calculée automatiquement par GPS (formule Haversine). Le système est compatible avec les fichiers **CSV générés par Excel** (séparateur point-virgule ou virgule).</p>
+        <p>✅ Le classement s'affiche et se met à jour automatiquement grâce à la base de données en ligne (Firebase).</p>
 
         <div id="data-input">
-            <h2>Paramètres du Lâcher</h2>
+            <h2>Paramètres du Lâcher (Fixes)</h2>
             <label for="heure-lacher">Heure de Lâcher :</label>
             <input type="datetime-local" id="heure-lacher" value="2025-11-21T08:00">
 
-            <label for="lacher-lat">Latitude du Lâcher (Décimal - ex: 50.45)</label>
+            <label for="lacher-lat">Latitude du Lâcher (Décimal)</label>
             <input type="text" id="lacher-lat" value="50.45">
 
-            <label for="lacher-lon">Longitude du Lâcher (Décimal - ex: 3.25)</label>
+            <label for="lacher-lon">Longitude du Lâcher (Décimal)</label>
             <input type="text" id="lacher-lon" value="3.25">
+        </div>
+        
+        <hr>
 
+        <div id="constatation-form">
+            <h2>Nouvelle Constatation (Temps Réel)</h2>
+            <label for="amateur-name">Nom de l'Amateur (Doit correspondre à la liste JS) :</label>
+            <select id="amateur-name">
+                </select>
             
-            <h2>Importation de Fichier Excel via CSV</h2>
-            <p style="font-size: 14px; color: #0056b3;">
-                **1. Créez ou modifiez vos données dans Excel.**
-                <br>
-                **2. Enregistrez-le au format CSV (Fichier > Enregistrer sous > Type: CSV).**
-                <br>
-                **3. Chargez le fichier CSV ci-dessous.**
-            </p>
-            <input type="file" id="file-input" accept=".csv" style="margin-bottom: 5px;">
-            <button onclick="loadFile()" id="load-file-btn" style="margin-bottom: 20px;">
-                Charger le Fichier CSV
+            <label for="bague-number">N° Bague :</label>
+            <input type="text" id="bague-number" placeholder="Ex: 1001">
+            
+            <label for="constatation-time">Heure de Constatation (YYYY-MM-DDTHH:MM) :</label>
+            <input type="datetime-local" id="constatation-time">
+
+            <button onclick="saveConstatationToDB()" id="save-constatation-btn">
+                ✅ Enregistrer la Constatation en Ligne
             </button>
-            
-            <h2>Données d'Entrée (Manuel ou après Importation)</h2>
-            <p>Format requis (un pigeon par ligne) :</p>
-            <pre>N° Bague, Nom Amateur, **Latitude Pigeonnier (Dec.)**, **Longitude Pigeonnier (Dec.)**, Heure de Constatation (YYYY-MM-DDTHH:MM)</pre>
-
-            <textarea id="csv-data" rows="10">
-1001, Durand, 50.62, 3.58, 2025-11-21T14:30
-1002, Dupont, 50.70, 3.50, 2025-11-21T14:28
-1003, Leroy, 50.85, 3.65, 2025-11-21T14:40
-1004, Dubois, 50.60, 3.60, 2025-11-21T14:31
-1005, Moreau, 50.75, 3.45, 2025-11-21T14:35
-            </textarea>
-            
-            <button onclick="calculateResults()">Calculer les Résultats</button>
-            <button onclick="generatePrintReport()" id="pdf-button">Générer le PDF (Imprimer) - Design Moderne</button>
         </div>
 
         <hr>
 
-        <h2>📊 Classement Provisoire</h2>
+        <h2>📊 Classement EN DIRECT</h2>
         <div id="resultats">
-            <p>Cliquez sur "Calculer les Résultats" pour afficher le classement.</p>
+            <p>En attente de la connexion à la base de données...</p>
         </div>
+        
+        <button onclick="generatePrintReport()" id="pdf-button" style="margin-top: 20px;">Générer le PDF (Imprimer) - Design Moderne</button>
     </div>
 
     <script>
+        // =================================================================
+        // ⚠️ ÉTAPE CRUCIALE : REMPLACER PAR VOTRE CONFIGURATION FIREBASE !
+        // =================================================================
+        const firebaseConfig = {
+          apiKey: "AIzaSyCeIrq2tmx0JS6rOwWLp2V4Ik81537hlyQ",
+          authDomain: "pigeonnierdata.firebaseapp.com",
+          projectId: "pigeonnierdata",
+          storageBucket: "pigeonnierdata.firebasestorage.app",
+          messagingSenderId: "1032790295918",
+          appId: "1:1032790295918:web:b341cb4424650a72206d7f",
+          measurementId: "G-DN55HRVPR1"
+        };
+
+        // Initialisation de Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        // =================================================================
+        
+
         // REMPLACER CECI par l'URL de votre logo !
         const LOGO_URL = 'https://via.placeholder.com/150x80?text=VOTRE+LOGO'; 
+        
+        // =================================================================
+        // Base de Données des Pigeonniers (Hardcodée pour la simplicité)
+        // Ceci remplace la nécessité des colonnes Lat/Lon dans le CSV
+        // =================================================================
+        const PIGEONNIER_DATA = {
+            "Durand": { lat: 50.62, lon: 3.58 },
+            "Dupont": { lat: 50.70, lon: 3.50 },
+            "Leroy":  { lat: 50.85, lon: 3.65 },
+            "Dubois": { lat: 50.60, lon: 3.60 },
+            "Moreau": { lat: 50.75, lon: 3.45 }
+            // Ajoutez d'autres amateurs ici...
+        };
+
+        // Fonction d'initialisation pour remplir le menu déroulant
+        window.onload = function() {
+            const select = document.getElementById('amateur-name');
+            for (const amateur in PIGEONNIER_DATA) {
+                const option = document.createElement('option');
+                option.value = amateur;
+                option.textContent = amateur;
+                select.appendChild(option);
+            }
+            listenForResults(); // Démarre l'écoute des résultats dès le chargement
+        };
+
 
         /**
          * Calcule la distance entre deux points GPS (Latitude/Longitude) en utilisant la formule Haversine.
@@ -165,72 +194,111 @@
             return R * c; 
         }
         
+        // =================================================================
+        // FONCTIONS FIREBASE
+        // =================================================================
+
         /**
-         * Charge le contenu d'un fichier CSV sélectionné.
+         * Enregistre une nouvelle constatation dans la base de données Firestore.
          */
-        function loadFile() {
-            const fileInput = document.getElementById('file-input');
-            const csvDataTextarea = document.getElementById('csv-data');
-            const file = fileInput.files[0];
-
-            if (!file) {
-                alert("Veuillez sélectionner un fichier CSV à charger.");
+        function saveConstatationToDB() {
+            const amateur = document.getElementById('amateur-name').value;
+            const bague = document.getElementById('bague-number').value.trim();
+            const constatationTimeStr = document.getElementById('constatation-time').value;
+            
+            if (!amateur || !bague || !constatationTimeStr) {
+                alert("Veuillez remplir tous les champs de la constatation.");
                 return;
             }
-            
-            if (file.name.split('.').pop().toLowerCase() !== 'csv') {
-                alert("Type de fichier non pris en charge. Veuillez charger un fichier CSV.");
+            if (!PIGEONNIER_DATA[amateur]) {
+                alert(`Amateur ${amateur} non trouvé dans la base de données des pigeonniers.`);
                 return;
             }
 
-            const reader = new FileReader();
-            
-            reader.onload = function(e) {
-                csvDataTextarea.value = e.target.result.trim();
-                alert(`Fichier "${file.name}" chargé avec succès !`);
-                calculateResults(); 
-            };
+            // Convertir l'heure de constatation en objet Date pour Firebase (timestamp)
+            const constatationDate = new Date(constatationTimeStr);
 
-            reader.onerror = function(e) {
-                alert("Erreur lors de la lecture du fichier : " + reader.error.name);
-            };
-
-            reader.readAsText(file);
+            db.collection("constatations").add({
+                bague: bague,
+                amateur: amateur,
+                constatation_time: constatationDate, // Firestore stocke ceci comme un Timestamp
+                timestamp_enregistrement: firebase.firestore.FieldValue.serverTimestamp()
+            })
+            .then(() => {
+                // Effacer le formulaire après succès
+                document.getElementById('bague-number').value = '';
+                document.getElementById('constatation-time').value = '';
+                alert(`Constatation de ${amateur} (${bague}) enregistrée !`);
+                // La mise à jour du classement est gérée par listenForResults()
+            })
+            .catch((error) => {
+                alert("Erreur lors de l'enregistrement de la constatation. Voir la console pour les détails.");
+                console.error("Erreur d'écriture: ", error);
+            });
         }
 
         /**
-         * Calcule et affiche les résultats.
+         * Écoute la base de données Firestore en temps réel.
+         * Dès qu'une donnée change, la fonction calculateResults est appelée.
          */
-        function calculateResults() {
+        function listenForResults() {
+            // Requête pour trier les résultats par heure de constatation.
+            db.collection("constatations").orderBy("constatation_time", "asc")
+              .onSnapshot((snapshot) => {
+                let toutesLesConstatations = [];
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    // Assurez-vous que l'heure de constatation est convertie en string ISO pour le calcul
+                    const isoTime = data.constatation_time.toDate().toISOString().substring(0, 16); 
+                    toutesLesConstatations.push({
+                        bague: data.bague,
+                        amateur: data.amateur,
+                        constatation: isoTime // Format 'YYYY-MM-DDTHH:MM'
+                    });
+                });
+                
+                calculateResults(toutesLesConstatations);
+            }, (error) => {
+                console.error("Erreur lors de l'écoute de la base de données:", error);
+                document.getElementById('resultats').innerHTML = `<p style="color:red;">Erreur de connexion à Firebase. Vérifiez la console.</p>`;
+            });
+        }
+
+
+        // =================================================================
+        // FONCTIONS DE CALCUL (ADAPTÉES POUR PRENDRE LES DONNÉES DE FIREBASE)
+        // =================================================================
+        
+        /**
+         * Calcule et affiche les résultats à partir des données de constatation.
+         */
+        function calculateResults(constatations) {
             const heureLacherInput = document.getElementById('heure-lacher').value;
             const lacherLat = parseFloat(document.getElementById('lacher-lat').value);
             const lacherLon = parseFloat(document.getElementById('lacher-lon').value);
-            const csvData = document.getElementById('csv-data').value;
             const resultsDiv = document.getElementById('resultats');
             
-            if (!heureLacherInput || isNaN(lacherLat) || isNaN(lacherLon) || !csvData) {
-                resultsDiv.innerHTML = '<p style="color:red;">Veuillez entrer l\'heure de lâcher, les coordonnées de lâcher et les données de constatation.</p>';
+            if (!heureLacherInput || isNaN(lacherLat) || isNaN(lacherLon) || constatations.length === 0) {
+                resultsDiv.innerHTML = '<p>Aucune donnée de constatation enregistrée, ou paramètres de lâcher manquants.</p>';
                 return;
             }
 
             const lacherTime = new Date(heureLacherInput).getTime();
             
-            // Remplace les points-virgules (;) par des virgules (,) pour la compatibilité
-            const correctedCsvData = csvData.replace(/;/g, ',');
-            const lines = correctedCsvData.trim().split('\n').filter(line => line.trim() !== '');
-            
             let pigeons = [];
 
-            lines.forEach(line => {
-                const parts = line.split(',').map(part => part.trim());
-                if (parts.length < 5) return; 
+            constatations.forEach(constatation => {
+                const amateur = constatation.amateur;
+                const bague = constatation.bague;
 
-                const [bague, amateur, pigeonnierLatStr, pigeonnierLonStr, constatationStr] = parts;
+                // 1. Récupérer les coordonnées du pigeonnier
+                const pigeonnier = PIGEONNIER_DATA[amateur];
+                if (!pigeonnier) return; // Ignore si l'amateur n'est pas dans la base hardcodée
+
+                const pigeonnierLat = pigeonnier.lat;
+                const pigeonnierLon = pigeonnier.lon;
                 
-                const pigeonnierLat = parseFloat(pigeonnierLatStr);
-                const pigeonnierLon = parseFloat(pigeonnierLonStr);
-
-                const constatationTime = new Date(constatationStr).getTime();
+                const constatationTime = new Date(constatation.constatation).getTime();
                 
                 const distanceKm = getDistanceHaversine(lacherLat, lacherLon, pigeonnierLat, pigeonnierLon);
                 
@@ -254,17 +322,18 @@
                     bague,
                     amateur,
                     distanceKm: distanceKm.toFixed(3), 
-                    constatation: constatationStr.replace('T', ' '),
+                    constatation: constatation.constatation.replace('T', ' '),
                     tempsVol: tempsVolFormatted,
                     vitesse: vitesse.toFixed(3)
                 });
             });
 
-            // Tri par Vitesse
+            // Tri par Vitesse (Classement)
             pigeons.sort((a, b) => parseFloat(b.vitesse) - parseFloat(a.vitesse));
 
             // Affichage des Résultats
             let html = `
+                <p style="font-weight: bold; color: green;">Mise à jour automatique - Total Constatations: ${pigeons.length}</p>
                 <table class="resultats-table">
                     <thead>
                         <tr>
@@ -312,10 +381,10 @@
             resultsDiv.innerHTML = html;
         }
 
+        // =================================================================
+        // FONCTION D'IMPRESSION (inchangée)
+        // =================================================================
 
-        /**
-         * Fonction pour générer le rapport d'impression avec logo et design moderne.
-         */
         function generatePrintReport() {
             const resultsDiv = document.getElementById('resultats');
             const lacherDate = document.getElementById('heure-lacher').value.split('T')[0];
@@ -338,23 +407,16 @@
                 </div>
             `;
             
-            // 2. Sauvegarder l'état original du contenu
             const originalContent = document.body.innerHTML;
-            
-            // 3. Préparer le contenu pour l'impression (ajouter le header au début du div des résultats)
             const contentToPrint = resultsDiv.innerHTML;
             
-            // 4. Remplacer tout le corps pour n'afficher que le rapport
             document.body.innerHTML = printHeader + contentToPrint;
             
-            // 5. Déclencher l'impression
             window.print();
             
-            // 6. Rétablir le contenu original après l'impression (nécessaire après la boîte de dialogue)
             document.body.innerHTML = originalContent;
 
-            // Important: Ré-attacher les gestionnaires d'événements
-            calculateResults(); 
+            // Il n'est plus nécessaire de relancer calculateResults ici, car listenForResults garde la page à jour.
         }
     </script>
 </body>
