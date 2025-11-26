@@ -106,9 +106,10 @@
 
         <div id="constatation-form">
             <h2>Nouvelle Constatation (Temps Réel)</h2>
-            <label for="amateur-name">Nom de l'Amateur (Doit correspondre à la liste JS) :</label>
+            <label for="amateur-name">Nom de l'Amateur (Chargé depuis Firebase) :</label>
             <select id="amateur-name">
-                </select>
+                <option value="" disabled selected>Chargement des amateurs...</option>
+            </select>
             
             <label for="bague-number">N° Bague :</label>
             <input type="text" id="bague-number" placeholder="Ex: 1001">
@@ -125,7 +126,7 @@
 
         <h2>📊 Classement EN DIRECT</h2>
         <div id="resultats">
-            <p>En attente de la connexion à la base de données...</p>
+            <p style="color:orange;">Initialisation de la connexion Firebase...</p>
         </div>
         
         <button onclick="generatePrintReport()" id="pdf-button" style="margin-top: 20px;">Générer le PDF (Imprimer) - Design Moderne</button>
@@ -133,16 +134,16 @@
 
     <script>
         // =================================================================
-        // ⚠️ ÉTAPE CRUCIALE : REMPLACER PAR VOTRE CONFIGURATION FIREBASE !
+        // ⚠️ CONFIGURATION FIREBASE (REPRISE DE VOTRE CODE PRÉCÉDENT)
         // =================================================================
-       const firebaseConfig = {
-          apiKey: "AIzaSyCeIrq2tmx0JS6rOwWLp2V4Ik81537hlyQ",
-          authDomain: "pigeonnierdata.firebaseapp.com",
-          projectId: "pigeonnierdata",
-          storageBucket: "pigeonnierdata.firebasestorage.app",
-          messagingSenderId: "1032790295918",
-          appId: "1:1032790295918:web:b341cb4424650a72206d7f",
-          measurementId: "G-DN55HRVPR1"
+        const firebaseConfig = {
+            apiKey: "AIzaSyCeIrq2tmx0JS6rOwWLp2V4Ik81537hlyQ",
+            authDomain: "pigeonnierdata.firebaseapp.com",
+            projectId: "pigeonnierdata",
+            storageBucket: "pigeonnierdata.firebasestorage.app",
+            messagingSenderId: "1032790295918",
+            appId: "1:1032790295918:web:b341cb4424650a72206d7f",
+            measurementId: "G-DN55HRVPR1"
         };
 
         // Initialisation de Firebase
@@ -155,29 +156,61 @@
         const LOGO_URL = 'https://via.placeholder.com/150x80?text=VOTRE+LOGO'; 
         
         // =================================================================
-        // Base de Données des Pigeonniers (Hardcodée pour la simplicité)
-        // Ceci remplace la nécessité des colonnes Lat/Lon dans le CSV
+        // Base de Données des Pigeonniers : Vide initialement, sera chargée depuis Firestore
         // =================================================================
-        const PIGEONNIER_DATA = {
-            "Durand": { lat: 50.62, lon: 3.58 },
-            "Dupont": { lat: 50.70, lon: 3.50 },
-            "Leroy":  { lat: 50.85, lon: 3.65 },
-            "Dubois": { lat: 50.60, lon: 3.60 },
-            "Moreau": { lat: 50.75, lon: 3.45 }
-            // Ajoutez d'autres amateurs ici...
+        let PIGEONNIER_DATA = {}; 
+        
+        // Fonction d'initialisation : Charge les données des pigeonniers et démarre l'écoute des résultats
+        window.onload = function() {
+            // Démarre le chargement des coordonnées des pigeonniers depuis Firebase
+            loadPigeonniersData();
         };
 
-        // Fonction d'initialisation pour remplir le menu déroulant
-        window.onload = function() {
-            const select = document.getElementById('amateur-name');
-            for (const amateur in PIGEONNIER_DATA) {
-                const option = document.createElement('option');
-                option.value = amateur;
-                option.textContent = amateur;
-                select.appendChild(option);
-            }
-            listenForResults(); // Démarre l'écoute des résultats dès le chargement
-        };
+        /**
+         * Charge les coordonnées de tous les pigeonniers depuis la collection 'pigeonniers'.
+         */
+        function loadPigeonniersData() {
+            db.collection("pigeonniers").get().then((snapshot) => {
+                const select = document.getElementById('amateur-name');
+                // Vider l'option de chargement
+                select.innerHTML = '';
+                select.disabled = false;
+                
+                PIGEONNIER_DATA = {};
+                
+                snapshot.forEach(doc => {
+                    const amateurName = doc.id; // L'ID du document est le nom de l'amateur
+                    const data = doc.data();
+                    
+                    // Stockage des données (IMPORTANT : conversion en nombre pour le calcul)
+                    PIGEONNIER_DATA[amateurName] = { 
+                        lat: parseFloat(data.lat),
+                        lon: parseFloat(data.lon)
+                    };
+
+                    // Remplir le menu déroulant
+                    const option = document.createElement('option');
+                    option.value = amateurName;
+                    option.textContent = amateurName;
+                    select.appendChild(option);
+                });
+                
+                if (Object.keys(PIGEONNIER_DATA).length === 0) {
+                    select.innerHTML = '<option value="" disabled selected>AUCUN AMATEUR TROUVÉ (Vérifiez la collection "pigeonniers")</option>';
+                    select.disabled = true;
+                    document.getElementById('resultats').innerHTML = '<p style="color:red;">ERREUR: La collection "pigeonniers" est vide ou inaccessible.</p>';
+                } else {
+                    document.getElementById('resultats').innerHTML = '<p style="color: green;">Données des pigeonniers chargées. Démarrage de l\'écoute en temps réel...</p>';
+                }
+
+                // Une fois les coordonnées chargées, nous démarrons l'écoute des constatations
+                listenForResults(); 
+
+            }).catch(error => {
+                console.error("Erreur lors du chargement des données des pigeonniers:", error);
+                document.getElementById('resultats').innerHTML = `<p style="color:red;">Erreur: Impossible de charger les coordonnées des pigeonniers (Network ou Règles Firestore). Consultez la console.</p>`;
+            });
+        }
 
 
         /**
@@ -210,8 +243,10 @@
                 alert("Veuillez remplir tous les champs de la constatation.");
                 return;
             }
+            
+            // Vérification que les coordonnées de l'amateur sont disponibles (déjà chargées)
             if (!PIGEONNIER_DATA[amateur]) {
-                alert(`Amateur ${amateur} non trouvé dans la base de données des pigeonniers.`);
+                alert(`Erreur critique: Les coordonnées de l'amateur "${amateur}" sont introuvables. Rechargez la page.`);
                 return;
             }
 
@@ -229,7 +264,6 @@
                 document.getElementById('bague-number').value = '';
                 document.getElementById('constatation-time').value = '';
                 alert(`Constatation de ${amateur} (${bague}) enregistrée !`);
-                // La mise à jour du classement est gérée par listenForResults()
             })
             .catch((error) => {
                 alert("Erreur lors de l'enregistrement de la constatation. Voir la console pour les détails.");
@@ -242,6 +276,11 @@
          * Dès qu'une donnée change, la fonction calculateResults est appelée.
          */
         function listenForResults() {
+            // Si les données de base (pigeonniers) n'ont pas été chargées, on ne fait rien.
+            if (Object.keys(PIGEONNIER_DATA).length === 0) {
+                 return;
+            }
+            
             // Requête pour trier les résultats par heure de constatation.
             db.collection("constatations").orderBy("constatation_time", "asc")
               .onSnapshot((snapshot) => {
@@ -259,14 +298,14 @@
                 
                 calculateResults(toutesLesConstatations);
             }, (error) => {
-                console.error("Erreur lors de l'écoute de la base de données:", error);
+                console.error("Erreur lors de l'écoute de la base de données 'constatations':", error);
                 document.getElementById('resultats').innerHTML = `<p style="color:red;">Erreur de connexion à Firebase. Vérifiez la console.</p>`;
             });
         }
 
 
         // =================================================================
-        // FONCTIONS DE CALCUL (ADAPTÉES POUR PRENDRE LES DONNÉES DE FIREBASE)
+        // FONCTIONS DE CALCUL (utilise PIGEONNIER_DATA remplie par Firebase)
         // =================================================================
         
         /**
@@ -278,9 +317,13 @@
             const lacherLon = parseFloat(document.getElementById('lacher-lon').value);
             const resultsDiv = document.getElementById('resultats');
             
-            if (!heureLacherInput || isNaN(lacherLat) || isNaN(lacherLon) || constatations.length === 0) {
-                resultsDiv.innerHTML = '<p>Aucune donnée de constatation enregistrée, ou paramètres de lâcher manquants.</p>';
+            if (!heureLacherInput || isNaN(lacherLat) || isNaN(lacherLon)) {
+                resultsDiv.innerHTML = '<p style="color:red;">Veuillez vérifier les paramètres du lâcher.</p>';
                 return;
+            }
+            if (constatations.length === 0) {
+                 resultsDiv.innerHTML = '<p>Aucune constatation enregistrée pour le moment. Le classement sera mis à jour dès la première arrivée.</p>';
+                 return;
             }
 
             const lacherTime = new Date(heureLacherInput).getTime();
@@ -293,7 +336,7 @@
 
                 // 1. Récupérer les coordonnées du pigeonnier
                 const pigeonnier = PIGEONNIER_DATA[amateur];
-                if (!pigeonnier) return; // Ignore si l'amateur n'est pas dans la base hardcodée
+                if (!pigeonnier) return; // Ignore si l'amateur n'est pas dans la base chargée
 
                 const pigeonnierLat = pigeonnier.lat;
                 const pigeonnierLon = pigeonnier.lon;
@@ -333,7 +376,7 @@
 
             // Affichage des Résultats
             let html = `
-                <p style="font-weight: bold; color: green;">Mise à jour automatique - Total Constatations: ${pigeons.length}</p>
+                <p style="font-weight: bold; color: green;">Mise à jour automatique - Total Constatations valides: ${pigeons.length}</p>
                 <table class="resultats-table">
                     <thead>
                         <tr>
@@ -392,7 +435,6 @@
             const lacherLat = document.getElementById('lacher-lat').value;
             const lacherLon = document.getElementById('lacher-lon').value;
 
-            // 1. Créer l'en-tête stylisé avec le logo (sans la date de génération)
             const printHeader = `
                 <div class="print-header">
                     <div class="print-title">
@@ -415,11 +457,7 @@
             window.print();
             
             document.body.innerHTML = originalContent;
-
-            // Il n'est plus nécessaire de relancer calculateResults ici, car listenForResults garde la page à jour.
         }
     </script>
 </body>
 </html>
-
-
